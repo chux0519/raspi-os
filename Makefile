@@ -1,21 +1,42 @@
-SRCS = $(wildcard *.c)
-OBJS = $(SRCS:.c=.o)
-CFLAGS = -Wall -O2 -ffreestanding -nostdinc -nostdlib -mcpu=cortex-a53+nosimd
+SOURCES = $(wildcard **/*.rs) $(wildcard **/*.S) $(wildcard **/*.ld)
+CARGO_OUTPUT = target/aarch64-unknown-none-softfloat/release/raspi-os
+OUTPUT = kernel8.img
+TARGET = aarch64-unknown-none-softfloat
 
-all: clean kernel8.img
+.PHONY: all doc qemu clippy clean readelf objdump nm
 
-start.o: start.S
-	clang --target=aarch64-elf $(CFLAGS) -c start.S -o start.o
+all: clean $(OUTPUT)
 
-%.o: %.c
-	clang --target=aarch64-elf $(CFLAGS) -c $< -o $@
+$(OUTPUT): $(CARGO_OUTPUT)
+	cp $< .
+	cargo objcopy \
+		-- \
+		--strip-all \
+		-O binary $< $(OUTPUT)
 
-kernel8.img: start.o $(OBJS)
-	ld.lld -m aarch64elf -nostdlib start.o $(OBJS) -T link.ld -o kernel8.elf
-	llvm-objcopy -O binary kernel8.elf kernel8.img
+$(CARGO_OUTPUT): $(SOURCES)
+	RUSTFLAGS="-C link-arg=-Tlink.ld -C target-cpu=cortex-a53 -D warnings" cargo xrustc \
+		--target=$(TARGET) \
+		--release
+
+doc:
+	cargo xdoc --target=$(TARGET) --document-private-items
+	xdg-open target/$(TARGET)/doc/raspi-os/index.html
+
+clippy:
+	cargo xclippy --target=$(TARGET)
 
 clean:
-	rm kernel8.elf *.o >/dev/null 2>/dev/null || true
+	rm -rf target
+
+readelf:
+	readelf -a raspi-os
+
+objdump:
+	cargo objdump --target $(TARGET) -- -disassemble -print-imm-hex raspi-os
+
+nm:
+	cargo nm --target $(TARGET) -- raspi-os | sort
 
 run:
 	qemu-system-aarch64 -M raspi3 -kernel kernel8.img -d in_asm
