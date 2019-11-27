@@ -39,4 +39,4 @@ nm:
 	cargo nm --target $(TARGET) -- raspi-os | sort
 
 run:
-	qemu-system-aarch64 -M raspi3 -kernel kernel8.img -d in_asm
+	qemu-system-aarch64 -M raspi3 -kernel kernel8.img -serial stdio

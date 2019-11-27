@@ -1,6 +1,7 @@
 SECTIONS
 {
     . = 0x80000;
+
     .bss ALIGN(8):
     {
         __bss_start = .;
